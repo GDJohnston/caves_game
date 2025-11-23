@@ -12,116 +12,167 @@ struct ColourScheme {
 
 const DARK_SCHEME: ColourScheme = ColourScheme{ background_colour: BLACK, tile_colour: DARKGRAY, seperator_colour: LIGHTGRAY };
 
-#[derive(Default)]
-struct Caves {
-    offset_x:f32,
-    offset_y:f32,
-    square_size: f32,
-}
-
 struct Ui {
     caves_per: f32,
     invent_per: f32,
 }
-impl Caves {
-    fn new(frame: &Frame, border_x: f32, border_y: f32) -> Self {
-        let game_size = screen_width().min(screen_height());
-        let offset_x = (screen_width() - game_size) / 2.0 + border_x;
-        let offset_y = (screen_height() - game_size) / 2.0 + border_y;
-        let square_size = (screen_height() - offset_y * 2.0) / MAX_LENGTH as f32;
 
-        Self { offset_x, offset_y, square_size }
-    }
-}
-
-struct Frame {
+struct Cell {
     x_least: f32,
     y_least: f32,
     x_most: f32,
     y_most: f32,
 }
 
+impl Cell {
+    fn draw(&self, colour: Color) {
+        draw_rectangle(
+            self.x_least,
+            self.y_least,
+            self.x_most,
+            self.y_most,
+            colour
+        );
+    }
+}
+
 #[macroquad::main("Caves")]
 async fn main() {
-    let x_length = rand::rng().random_range(1..=7);
-    let y_length = rand::rng().random_range(1..=7);
+    // let x_length = rand::rng().random_range(1..=7);
+    // let y_length = rand::rng().random_range(1..=7);
 
-    // let x_length = 5;
-    // let y_length = 3;
+    let x_length = 5;
+    let y_length = 3;
     let ui = Ui{ caves_per: 0.7, invent_per: 0.3 };
-    let screen_size = screen_width().min(screen_height());
-    let global_margin = 10.0;
-    let caves_frame = Frame { x_least: global_margin, y_least: global_margin, x_most: screen_size * ui.caves_per - global_margin, y_most: screen_size - global_margin };
     loop {
-        render_caves(&caves_frame, x_length, y_length);
-        // render_inventory(x_length, y_length);
+        let global_cell = Cell {x_least: 0.0, y_least: 0.0, x_most: screen_width(), y_most: screen_height()};
+        let caves_cell = Cell { x_least: 0.0, y_least: 0.0, x_most: global_cell.x_most * ui.caves_per, y_most: global_cell.y_most};
+        let rightpane_cell = Cell { x_least: global_cell.x_most * ui.caves_per, y_least: 0.0, x_most: global_cell.x_most, y_most: global_cell.y_most};
+
+        clear_background(BLACK);
+
+        // Seperator
+        draw_line(0.7 * screen_width(), 0.0, 0.7 * screen_width(), screen_height(), 2.0, LIGHTGRAY);
+        render_caves(&caves_cell, x_length, y_length);
+        render_inventory(&rightpane_cell, 3, 5);
         next_frame().await;
     }   
 }
 
-fn render_inventory(x_width: u32, y_width: u32) {
-    clear_background(BLACK);
-    
-    let screen_size = screen_width().min(screen_height());
-    let mut offset_x = (screen_width() - screen_size) / 2.0 + 10.0;
-    let mut offset_y = (screen_height() - screen_size) / 2.0 + 10.0;
-    let square_size = ((screen_height() - offset_y * 2.0) / MAX_LENGTH as f32) * 0.7;
+fn render_inventory(cell: &Cell, x_length: u32, y_length: u32) {
+    let x_len = cell.x_most - cell.x_least;
+    let y_len = cell.y_most - cell.y_least;
+    let game_size = x_len.min(y_len);
 
-    let x_l2 = (MAX_LENGTH - x_width) as f32;
-    let y_l2 = (MAX_LENGTH - y_width) as f32;
+    let mut offset_x = (x_len - game_size) / 2.0 + 10.0;
+    let mut offset_y = (y_len - game_size) / 2.0 + 10.0;
 
-    offset_x += (x_l2/2.0) * square_size as f32;
-    offset_y += (y_l2/2.0) * square_size as f32;
-
-    for i in 0..y_width + 1 { // Rows
-        draw_line(
-            offset_x,
-            offset_y + square_size * i as f32,
-            screen_width() - offset_x,
-            offset_y + square_size * i as f32,
-            2.,
-            LIGHTGRAY,
-        );
-    }
-
-    for i in 0..x_width + 1 { // Columns
-        draw_line(
-            offset_x + square_size * i as f32,
-            offset_y,
-            offset_x + square_size * i as f32,
-            y_width as f32 * square_size + offset_y,
-            2.,
-            LIGHTGRAY,
-        );
-    }
-}
-
-fn render_caves(frame: &Frame, x_length: u32, y_length:u32) {
-    clear_background(BLACK);
-
-    // Seperator
-    // draw_line(0.7 * screen_width(), 0.0, 0.7 * screen_width(), screen_height(), 2.0, RED);
-
-    let caves: Caves = Caves::new(frame, 10.0, 10.0);
-    draw_cave(&caves, x_length, y_length);
-
-    let mut offset_x = caves.offset_x;
-    let mut offset_y = caves.offset_y;
-    let sq_size = caves.square_size;
+    let square_size = (x_len - offset_x * 2.0) / MAX_LENGTH as f32;
 
     let x_l2 = (MAX_LENGTH - x_length) as f32;
     let y_l2 = (MAX_LENGTH - y_length) as f32;
 
-    offset_x += (x_l2/2.0) * sq_size as f32;
-    offset_y += (y_l2/2.0) * sq_size as f32;
+    offset_x += (x_l2/2.0) * square_size as f32;
+    offset_y += (y_l2/2.0) * square_size as f32;
+
+    let grid_start_x = cell.x_least + offset_x;
+    let grid_start_y = cell.y_least + offset_y;
+
+    // draw_line(
+    //     cell.x_least + offset_x,
+    //     cell.y_least + offset_y,
+    //     cell.x_most - offset_x,
+    //     cell.y_most - offset_y,
+    //     2.0, RED);
+    for i in 0..y_length + 1 { // Horizontal
+        draw_line(
+            grid_start_x,
+            grid_start_y + square_size * i as f32,
+            cell.x_most - offset_x,
+            grid_start_y + square_size * i as f32,
+            2.0,
+            LIGHTGRAY,
+        );
+    }
+
+    for i in 0..x_length + 1 { // Vertical
+        draw_line(
+            grid_start_x + square_size * i as f32,
+            grid_start_y,
+            grid_start_x + square_size * i as f32,
+            cell.y_most - offset_y,
+            2.0,
+            LIGHTGRAY,
+        );
+
+    // for i in 0..y_length + 1 { // Horizontal
+    //     draw_line(
+    //         cell.x_least + offset_x,
+    //         cell.y_least + offset_y + square_size * i as f32,
+    //         cell.x_most - offset_x,
+    //         cell.y_least + offset_y + square_size * i as f32,
+    //         2.,
+    //         PINK,
+    //     );
+    // }
+
+    // for i in 0..x_length + 1 { // Vertical
+    //     draw_line(
+    //         cell.x_least + offset_x + square_size * i as f32,
+    //         cell.y_least + offset_y,
+    //         cell.x_least + offset_x + square_size * i as f32,
+    //         cell.y_least + y_length as f32 * square_size + offset_y,
+    //         2.,
+    //         ORANGE,
+    //     );
+    }
+}
+
+fn render_caves(cell: &Cell, x_length: u32, y_length:u32) {
+    draw_cave(cell, x_length, y_length);
+}
+
+fn draw_cave(cell: &Cell, x_length: u32, y_length:u32) {
+    draw_tiles(cell, x_length, y_length);
+    draw_grid(cell, x_length, y_length);
+}
+
+fn draw_tiles(cell: &Cell, x_length: u32, y_length: u32) {
+    let game_size = cell.x_most.min(cell.y_most);
+    let offset_x = (cell.x_most - game_size) / 2.0 + 10.0;
+    let offset_y = (cell.y_most - game_size) / 2.0 + 10.0;
+    let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
+
+    let x_l2 = (MAX_LENGTH - x_length) as f32;
+    let y_l2 = (MAX_LENGTH - y_length) as f32;
+
+    let start_x = offset_x + (x_l2/2.0) * square_size as f32;
+    let start_y = offset_y + (y_l2/2.0) * square_size as f32;
+    
+    let width = x_length as f32 * square_size;
+    let height = y_length as f32 * square_size;
+    draw_rectangle(start_x, start_y, width, height, DARKGRAY);
+}
+
+fn draw_grid(cell: &Cell, x_length: u32, y_length: u32) {
+    let game_size = cell.x_most.min(cell.y_most);
+    let mut offset_x = (cell.x_most - game_size) / 2.0 + 10.0;
+    let mut offset_y = (cell.y_most - game_size) / 2.0 + 10.0;
+    let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
+
+    let x_l2 = (MAX_LENGTH - x_length) as f32;
+    let y_l2 = (MAX_LENGTH - y_length) as f32;
+
+    offset_x += (x_l2/2.0) * square_size as f32;
+    offset_y += (y_l2/2.0) * square_size as f32;
 
     
     for i in 1..y_length { // Rows
         draw_line(
             offset_x,
-            offset_y + sq_size * i as f32,
-            screen_width() - offset_x,
-            offset_y + sq_size * i as f32,
+            (offset_y + square_size * i as f32),
+            (cell.x_most - offset_x),
+            (offset_y + square_size * i as f32),
             2.,
             LIGHTGRAY,
         );
@@ -129,29 +180,12 @@ fn render_caves(frame: &Frame, x_length: u32, y_length:u32) {
 
     for i in 1..x_length { // Columns
         draw_line(
-            (offset_x + sq_size * i as f32),
+            (offset_x + square_size * i as f32),
             offset_y,
-            (offset_x + sq_size * i as f32),
-            (y_length as f32 * sq_size + offset_y),
+            (offset_x + square_size * i as f32),
+            (y_length as f32 * square_size + offset_y),
             2.,
             LIGHTGRAY,
         );
     }
-
-}
-
-fn draw_cave(caves: &Caves, x_length: u32, y_length:u32) {
-    draw_tiles(caves, x_length, y_length);
-}
-
-fn draw_tiles(caves: &Caves, x_length: u32, y_length: u32) {
-    let x_l2 = (MAX_LENGTH - x_length) as f32;
-    let y_l2 = (MAX_LENGTH - y_length) as f32;
-
-    let start_x = caves.offset_x + (x_l2/2.0) * caves.square_size as f32;
-    let start_y = caves.offset_y + (y_l2/2.0) * caves.square_size as f32;
-    
-    let width = x_length as f32 * caves.square_size;
-    let height = y_length as f32 * caves.square_size;
-    draw_rectangle(start_x, start_y, width, height, DARKGRAY);
 }
