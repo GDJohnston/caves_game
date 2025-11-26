@@ -36,27 +36,62 @@ impl Cell {
     }
 }
 
-#[macroquad::main("Caves")]
-async fn main() {
-    // let x_length = rand::rng().random_range(1..=7);
-    // let y_length = rand::rng().random_range(1..=7);
+enum Screen {
+    MainMenu,
+    Game,
+}
+
+fn game() {
 
     let x_length = 5;
     let y_length = 3;
     let ui = Ui{ caves_per: 0.7, invent_per: 0.3 };
-    loop {
-        let global_cell = Cell {x_least: 0.0, y_least: 0.0, x_most: screen_width(), y_most: screen_height()};
-        let caves_cell = Cell { x_least: 0.0, y_least: 0.0, x_most: global_cell.x_most * ui.caves_per, y_most: global_cell.y_most};
-        let rightpane_cell = Cell { x_least: global_cell.x_most * ui.caves_per, y_least: 0.0, x_most: global_cell.x_most, y_most: global_cell.y_most};
+    let global_cell = Cell {x_least: 0.0, y_least: 0.0, x_most: screen_width(), y_most: screen_height()};
+    let caves_cell = Cell { x_least: 0.0, y_least: 0.0, x_most: global_cell.x_most * ui.caves_per, y_most: global_cell.y_most};
+    let rightpane_cell = Cell { x_least: global_cell.x_most * ui.caves_per, y_least: 0.0, x_most: global_cell.x_most, y_most: global_cell.y_most};
 
-        clear_background(BLACK);
+    clear_background(BLACK);
 
-        // Seperator
-        draw_line(0.7 * screen_width(), 0.0, 0.7 * screen_width(), screen_height(), 2.0, LIGHTGRAY);
-        render_caves(&caves_cell, x_length, y_length);
-        render_inventory(&rightpane_cell, 3, 5);
+    // Seperator
+    draw_line(0.7 * screen_width(), 0.0, 0.7 * screen_width(), screen_height(), 2.0, LIGHTGRAY);
+    render_caves(&caves_cell, x_length, y_length);
+    render_inventory(&rightpane_cell, 4, 7);
+    draw_text(format!("FPS: {}", get_fps()).as_str(), 10., 20., 20., DARKGRAY);
+
+}
+
+fn menu(screen: &mut Screen) {
+    clear_background(WHITE);
+    let text = "Game Over. Press [enter] to play again.";
+    let font_size = 30.;
+    let text_size = measure_text(text, None, font_size as _, 1.0);
+
+    draw_text(
+        text,
+        screen_width() / 2. - text_size.width / 2.,
+        screen_height() / 2. + text_size.height / 2.,
+        font_size,
+        DARKGRAY,
+    );
+
+    if is_key_down(KeyCode::Enter) {
+        *screen = Screen::Game;
+    }
+}
+
+#[macroquad::main("Caves")]
+async fn main() {
+    // let x_length = rand::rng().random_range(1..=7);
+    // let y_length = rand::rng().random_range(1..=7);
+    
+    let mut screen = Screen::MainMenu;
+    loop{
+        match screen {
+            Screen::MainMenu => menu(&mut screen),
+            Screen::Game => game(),
+        }
         next_frame().await;
-    }   
+    }
 }
 
 fn render_inventory(cell: &Cell, x_length: u32, y_length: u32) {
@@ -173,7 +208,7 @@ fn draw_grid(cell: &Cell, x_length: u32, y_length: u32) {
             (offset_y + square_size * i as f32),
             (cell.x_most - offset_x),
             (offset_y + square_size * i as f32),
-            2.,
+            2.0,
             LIGHTGRAY,
         );
     }
@@ -184,7 +219,7 @@ fn draw_grid(cell: &Cell, x_length: u32, y_length: u32) {
             offset_y,
             (offset_x + square_size * i as f32),
             (y_length as f32 * square_size + offset_y),
-            2.,
+            2.0,
             LIGHTGRAY,
         );
     }
