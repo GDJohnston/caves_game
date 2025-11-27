@@ -1,3 +1,5 @@
+use std::ops::AddAssign;
+
 use ::rand::Rng;
 use ::rand;
 use macroquad::prelude::*;
@@ -41,8 +43,36 @@ enum Screen {
     Game,
 }
 
-fn game() {
+fn game_logic(player: &mut Player) {
+    let up = Point(0, -1);
+    let down = Point(0, 1);
+    let right = Point(1, 0);
+    let left = Point(-1, 0);
 
+    if is_key_pressed(KeyCode::W) {
+        player.pos += up;
+    } else if is_key_pressed(KeyCode::A) {
+        player.pos += left;
+    } else if is_key_pressed(KeyCode::S) {
+        player.pos += down;
+    } else if is_key_pressed(KeyCode::D) {
+        player.pos += right;
+    }
+
+    if player.pos.0 < 0{
+        player.pos.0 = 0;
+    }
+
+    if player.pos.1 < 0 {
+        player.pos.1 = 0;
+    }
+}
+
+fn game(player: &mut Player) {
+    // let x_length = rand::rng().random_range(1..=7);
+    // let y_length = rand::rng().random_range(1..=7);
+    
+    game_logic(player);
     let x_length = 5;
     let y_length = 3;
     let ui = Ui{ caves_per: 0.7, invent_per: 0.3 };
@@ -55,40 +85,53 @@ fn game() {
     // Seperator
     draw_line(0.7 * screen_width(), 0.0, 0.7 * screen_width(), screen_height(), 2.0, LIGHTGRAY);
     render_caves(&caves_cell, x_length, y_length);
+    render_player(player, &caves_cell, x_length, y_length);
     render_inventory(&rightpane_cell, 4, 7);
-    draw_text(format!("FPS: {}", get_fps()).as_str(), 10., 20., 20., DARKGRAY);
+    draw_text(format!("FPS: {}", get_fps()).as_str(), 10.0, 20.0, 20., DARKGRAY);
 
 }
 
 fn menu(screen: &mut Screen) {
-    clear_background(WHITE);
-    let text = "Game Over. Press [enter] to play again.";
+    clear_background(BLACK);
+    let text = "Caves\nPress [enter] to begin.";
     let font_size = 30.;
     let text_size = measure_text(text, None, font_size as _, 1.0);
 
-    draw_text(
+    draw_multiline_text(
         text,
         screen_width() / 2. - text_size.width / 2.,
         screen_height() / 2. + text_size.height / 2.,
         font_size,
-        DARKGRAY,
+        None,
+        BEIGE,
     );
 
     if is_key_down(KeyCode::Enter) {
         *screen = Screen::Game;
     }
 }
+struct Point (i16, i16);
 
+impl AddAssign for Point {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self {0: self.0 + rhs.0, 1: self.1 + rhs.1};
+    }
+}
+struct Player {
+    pos: Point,
+}
 #[macroquad::main("Caves")]
 async fn main() {
-    // let x_length = rand::rng().random_range(1..=7);
-    // let y_length = rand::rng().random_range(1..=7);
-    
+
     let mut screen = Screen::MainMenu;
-    loop{
+    let mut player: Player = Player {
+        pos: Point(0,0),
+    };
+
+    loop {
         match screen {
             Screen::MainMenu => menu(&mut screen),
-            Screen::Game => game(),
+            Screen::Game => game(&mut player),
         }
         next_frame().await;
     }
@@ -161,6 +204,28 @@ fn render_inventory(cell: &Cell, x_length: u32, y_length: u32) {
     //         ORANGE,
     //     );
     }
+}
+
+fn render_player(player: &Player, cell: &Cell, x_length: u32, y_length:u32) {
+    let game_size = cell.x_most.min(cell.y_most);
+    let offset_x = (cell.x_most - game_size) / 2.0 + 10.0;
+    let offset_y = (cell.y_most - game_size) / 2.0 + 10.0;
+    let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
+
+    let x_l2 = (MAX_LENGTH - x_length) as f32;
+    let y_l2 = (MAX_LENGTH - y_length) as f32;
+
+    let grid_start_x = offset_x + (x_l2/2.0) * square_size as f32;
+    let grid_start_y = offset_y + (y_l2/2.0) * square_size as f32;
+
+    let font_size = 60.0;
+    let text_size = measure_text("P", None, font_size as _, 1.0);
+
+
+    let player_x = grid_start_x + square_size / 2.0 + player.pos.0 as f32 * square_size - text_size.width / 2.0;
+    let player_y = grid_start_y + square_size / 2.0 + player.pos.1 as f32 * square_size + text_size.height / 2.0;
+
+    draw_text("P", player_x, player_y, font_size, BEIGE);
 }
 
 fn render_caves(cell: &Cell, x_length: u32, y_length:u32) {
