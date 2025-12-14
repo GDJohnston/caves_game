@@ -1,11 +1,13 @@
-use std::ops::AddAssign;
+mod cell;
+mod render;
+mod game_scene;
+mod main_menu_scene;
 
-use ::rand::Rng;
-use ::rand;
 use macroquad::prelude::*;
+use crate::render::Render;
 
 const MAX_LENGTH:u32 = 7;
-    
+
 struct ColourScheme {
     background_colour: Color,
     tile_colour: Color,
@@ -14,278 +16,33 @@ struct ColourScheme {
 
 const DARK_SCHEME: ColourScheme = ColourScheme{ background_colour: BLACK, tile_colour: DARKGRAY, seperator_colour: LIGHTGRAY };
 
-struct Ui {
-    caves_per: f32,
-    invent_per: f32,
-}
-
-struct Cell {
-    x_least: f32,
-    y_least: f32,
-    x_most: f32,
-    y_most: f32,
-}
-
-impl Cell {
-    fn draw(&self, colour: Color) {
-        draw_rectangle(
-            self.x_least,
-            self.y_least,
-            self.x_most,
-            self.y_most,
-            colour
-        );
-    }
-}
-
-enum Screen {
+enum Scene {
     MainMenu,
     Game,
 }
 
-fn game_logic(player: &mut Player) {
-    let up = Point(0, -1);
-    let down = Point(0, 1);
-    let right = Point(1, 0);
-    let left = Point(-1, 0);
-
-    if is_key_pressed(KeyCode::W) {
-        player.pos += up;
-    } else if is_key_pressed(KeyCode::A) {
-        player.pos += left;
-    } else if is_key_pressed(KeyCode::S) {
-        player.pos += down;
-    } else if is_key_pressed(KeyCode::D) {
-        player.pos += right;
-    }
-
-    if player.pos.0 < 0{
-        player.pos.0 = 0;
-    }
-
-    if player.pos.1 < 0 {
-        player.pos.1 = 0;
-    }
-}
-
-fn game(player: &mut Player) {
-    // let x_length = rand::rng().random_range(1..=7);
-    // let y_length = rand::rng().random_range(1..=7);
-    
-    game_logic(player);
-    let x_length = 5;
-    let y_length = 3;
-    let ui = Ui{ caves_per: 0.7, invent_per: 0.3 };
-    let global_cell = Cell {x_least: 0.0, y_least: 0.0, x_most: screen_width(), y_most: screen_height()};
-    let caves_cell = Cell { x_least: 0.0, y_least: 0.0, x_most: global_cell.x_most * ui.caves_per, y_most: global_cell.y_most};
-    let rightpane_cell = Cell { x_least: global_cell.x_most * ui.caves_per, y_least: 0.0, x_most: global_cell.x_most, y_most: global_cell.y_most};
-
-    clear_background(BLACK);
-
-    // Seperator
-    draw_line(0.7 * screen_width(), 0.0, 0.7 * screen_width(), screen_height(), 2.0, LIGHTGRAY);
-    render_caves(&caves_cell, x_length, y_length);
-    render_player(player, &caves_cell, x_length, y_length);
-    render_inventory(&rightpane_cell, 4, 7);
-    draw_text(format!("FPS: {}", get_fps()).as_str(), 10.0, 20.0, 20., DARKGRAY);
-
-}
-
-fn menu(screen: &mut Screen) {
-    clear_background(BLACK);
-    let text = "Caves\nPress [enter] to begin.";
-    let font_size = 30.;
-    let text_size = measure_text(text, None, font_size as _, 1.0);
-
-    draw_multiline_text(
-        text,
-        screen_width() / 2. - text_size.width / 2.,
-        screen_height() / 2. + text_size.height / 2.,
-        font_size,
-        None,
-        BEIGE,
-    );
-
-    if is_key_down(KeyCode::Enter) {
-        *screen = Screen::Game;
-    }
-}
-struct Point (i16, i16);
-
-impl AddAssign for Point {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = Self {0: self.0 + rhs.0, 1: self.1 + rhs.1};
-    }
-}
-struct Player {
-    pos: Point,
-}
 #[macroquad::main("Caves")]
 async fn main() {
+    let mut scene = Scene::MainMenu;
 
-    let mut screen = Screen::MainMenu;
-    let mut player: Player = Player {
-        pos: Point(0,0),
-    };
-
+    let mut game_scene = game_scene::GameScene::new();
+    let main_menu_scene = main_menu_scene::MainMenu{};
     loop {
-        match screen {
-            Screen::MainMenu => menu(&mut screen),
-            Screen::Game => game(&mut player),
+        let global_cell = cell::Cell::new(
+            (0.0, 0.0),
+            (screen_width(), screen_height())
+        );
+
+        match scene {
+            Scene::MainMenu => {
+                    main_menu_scene.logic(&mut scene);
+                    main_menu_scene.render(&global_cell);
+            }
+            Scene::Game => {
+                    game_scene.logic();
+                    game_scene.render(&global_cell);
+            }
         }
         next_frame().await;
-    }
-}
-
-fn render_inventory(cell: &Cell, x_length: u32, y_length: u32) {
-    let x_len = cell.x_most - cell.x_least;
-    let y_len = cell.y_most - cell.y_least;
-    let game_size = x_len.min(y_len);
-
-    let mut offset_x = (x_len - game_size) / 2.0 + 10.0;
-    let mut offset_y = (y_len - game_size) / 2.0 + 10.0;
-
-    let square_size = (x_len - offset_x * 2.0) / MAX_LENGTH as f32;
-
-    let x_l2 = (MAX_LENGTH - x_length) as f32;
-    let y_l2 = (MAX_LENGTH - y_length) as f32;
-
-    offset_x += (x_l2/2.0) * square_size as f32;
-    offset_y += (y_l2/2.0) * square_size as f32;
-
-    let grid_start_x = cell.x_least + offset_x;
-    let grid_start_y = cell.y_least + offset_y;
-
-    // draw_line(
-    //     cell.x_least + offset_x,
-    //     cell.y_least + offset_y,
-    //     cell.x_most - offset_x,
-    //     cell.y_most - offset_y,
-    //     2.0, RED);
-    for i in 0..y_length + 1 { // Horizontal
-        draw_line(
-            grid_start_x,
-            grid_start_y + square_size * i as f32,
-            cell.x_most - offset_x,
-            grid_start_y + square_size * i as f32,
-            2.0,
-            LIGHTGRAY,
-        );
-    }
-
-    for i in 0..x_length + 1 { // Vertical
-        draw_line(
-            grid_start_x + square_size * i as f32,
-            grid_start_y,
-            grid_start_x + square_size * i as f32,
-            cell.y_most - offset_y,
-            2.0,
-            LIGHTGRAY,
-        );
-
-    // for i in 0..y_length + 1 { // Horizontal
-    //     draw_line(
-    //         cell.x_least + offset_x,
-    //         cell.y_least + offset_y + square_size * i as f32,
-    //         cell.x_most - offset_x,
-    //         cell.y_least + offset_y + square_size * i as f32,
-    //         2.,
-    //         PINK,
-    //     );
-    // }
-
-    // for i in 0..x_length + 1 { // Vertical
-    //     draw_line(
-    //         cell.x_least + offset_x + square_size * i as f32,
-    //         cell.y_least + offset_y,
-    //         cell.x_least + offset_x + square_size * i as f32,
-    //         cell.y_least + y_length as f32 * square_size + offset_y,
-    //         2.,
-    //         ORANGE,
-    //     );
-    }
-}
-
-fn render_player(player: &Player, cell: &Cell, x_length: u32, y_length:u32) {
-    let game_size = cell.x_most.min(cell.y_most);
-    let offset_x = (cell.x_most - game_size) / 2.0 + 10.0;
-    let offset_y = (cell.y_most - game_size) / 2.0 + 10.0;
-    let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
-
-    let x_l2 = (MAX_LENGTH - x_length) as f32;
-    let y_l2 = (MAX_LENGTH - y_length) as f32;
-
-    let grid_start_x = offset_x + (x_l2/2.0) * square_size as f32;
-    let grid_start_y = offset_y + (y_l2/2.0) * square_size as f32;
-
-    let font_size = 60.0;
-    let text_size = measure_text("P", None, font_size as _, 1.0);
-
-
-    let player_x = grid_start_x + square_size / 2.0 + player.pos.0 as f32 * square_size - text_size.width / 2.0;
-    let player_y = grid_start_y + square_size / 2.0 + player.pos.1 as f32 * square_size + text_size.height / 2.0;
-
-    draw_text("P", player_x, player_y, font_size, BEIGE);
-}
-
-fn render_caves(cell: &Cell, x_length: u32, y_length:u32) {
-    draw_cave(cell, x_length, y_length);
-}
-
-fn draw_cave(cell: &Cell, x_length: u32, y_length:u32) {
-    draw_tiles(cell, x_length, y_length);
-    draw_grid(cell, x_length, y_length);
-}
-
-fn draw_tiles(cell: &Cell, x_length: u32, y_length: u32) {
-    let game_size = cell.x_most.min(cell.y_most);
-    let offset_x = (cell.x_most - game_size) / 2.0 + 10.0;
-    let offset_y = (cell.y_most - game_size) / 2.0 + 10.0;
-    let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
-
-    let x_l2 = (MAX_LENGTH - x_length) as f32;
-    let y_l2 = (MAX_LENGTH - y_length) as f32;
-
-    let start_x = offset_x + (x_l2/2.0) * square_size as f32;
-    let start_y = offset_y + (y_l2/2.0) * square_size as f32;
-    
-    let width = x_length as f32 * square_size;
-    let height = y_length as f32 * square_size;
-    draw_rectangle(start_x, start_y, width, height, DARKGRAY);
-}
-
-fn draw_grid(cell: &Cell, x_length: u32, y_length: u32) {
-    let game_size = cell.x_most.min(cell.y_most);
-    let mut offset_x = (cell.x_most - game_size) / 2.0 + 10.0;
-    let mut offset_y = (cell.y_most - game_size) / 2.0 + 10.0;
-    let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
-
-    let x_l2 = (MAX_LENGTH - x_length) as f32;
-    let y_l2 = (MAX_LENGTH - y_length) as f32;
-
-    offset_x += (x_l2/2.0) * square_size as f32;
-    offset_y += (y_l2/2.0) * square_size as f32;
-
-    
-    for i in 1..y_length { // Rows
-        draw_line(
-            offset_x,
-            (offset_y + square_size * i as f32),
-            (cell.x_most - offset_x),
-            (offset_y + square_size * i as f32),
-            2.0,
-            LIGHTGRAY,
-        );
-    }
-
-    for i in 1..x_length { // Columns
-        draw_line(
-            (offset_x + square_size * i as f32),
-            offset_y,
-            (offset_x + square_size * i as f32),
-            (y_length as f32 * square_size + offset_y),
-            2.0,
-            LIGHTGRAY,
-        );
     }
 }
