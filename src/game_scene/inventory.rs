@@ -6,8 +6,8 @@ use crate::cell;
 
 pub struct Inventory {
     // x/columns 4, y/rows 7
-    pub rows: u32,
-    pub columns: u32,
+    pub rows: u16,
+    pub columns: u16,
 }
 
 impl render::Render for Inventory {

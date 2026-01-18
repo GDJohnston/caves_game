@@ -6,7 +6,7 @@ mod main_menu_scene;
 use macroquad::prelude::*;
 use crate::render::Render;
 
-const MAX_LENGTH:u32 = 7;
+const MAX_LENGTH: u16 = 7;
 
 struct ColourScheme {
     background_colour: Color,
