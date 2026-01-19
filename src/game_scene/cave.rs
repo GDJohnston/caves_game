@@ -1,5 +1,6 @@
 mod cave_background;
 mod player;
+mod monster;
 
 use macroquad::color::{Color, DARKGRAY};
 use macroquad::text::draw_text;
@@ -13,6 +14,7 @@ pub struct Cave {
     rows: u16,
     columns: u16,
     player: player::Player,
+    monster: monster::Monster,
     cave_background: cave_background::CaveBackground,
 }
 
@@ -23,11 +25,13 @@ impl Cave {
 
         let cave_background = cave_background::CaveBackground::new(rows, columns);
         let player = player::Player::new(rows, columns);
-        Self {rows, columns, player, cave_background}
+        let monster = monster::Monster::new(rows, columns);
+        Self {rows, columns, player, monster, cave_background}
     }
 
     pub fn logic(self: &mut Self) {
         self.player.logic();
+        self.monster.logic();
     }
 
     fn make_cave_cell(self: &Self, cell: &cell::Cell) -> cell::Cell {
@@ -40,9 +44,9 @@ impl Cave {
         // Calculate square size
         let square_size = (cell.y_most - offset_y * 2.0) / MAX_LENGTH as f32;
 
-        draw_text(format!("y_most: {:?}", cell.y_most).as_str(), 10.0, 40.0, 20., DARKGRAY);
-        draw_text(format!("offset_y: {:?}", offset_y).as_str(), 10.0, 60.0, 20., DARKGRAY);
-        draw_text(format!("square_size: {:?}", square_size).as_str(), 10.0, 80.0, 20., DARKGRAY);
+        // draw_text(format!("y_most: {:?}", cell.y_most).as_str(), 10.0, 40.0, 20., DARKGRAY);
+        // draw_text(format!("offset_y: {:?}", offset_y).as_str(), 10.0, 60.0, 20., DARKGRAY);
+        // draw_text(format!("square_size: {:?}", square_size).as_str(), 10.0, 80.0, 20., DARKGRAY);
 
 
         // Find the missing square count for each side
@@ -67,7 +71,8 @@ impl Render for Cave {
         let cave_cell = self.make_cave_cell(cell);
         self.cave_background.render(&cell);
         self.player.render(&cell);
-        
-        cave_cell._debug_render(Color::new(0.5,0.0,0.0,0.5));
+        self.monster.render(&cell);
+
+        // cave_cell._debug_render(Color::new(0.5,0.0,0.0,0.5));
     }
 }
